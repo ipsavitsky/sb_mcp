@@ -1,0 +1,21 @@
+[project]
+name = "sb-mcp"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp>=1.9.4",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[project.scripts]
+sb_mcp = "sb_mcp.__main__:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
