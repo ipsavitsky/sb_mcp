@@ -25,7 +25,7 @@ async def make_sb_request(url: str, response_format: Literal['json', 'text'] = '
             return None
 
 @mcp.tool()
-async def get_index() -> str:
+async def get_silverbullet_index() -> str:
     """Get the index of all pages"""
     sb_url = f"{SB_API_BASE}/index.json"
     page_data = await make_sb_request(sb_url, response_format='json')
@@ -38,11 +38,11 @@ async def get_index() -> str:
     return "\n".join(valid_pages)
 
 @mcp.tool()
-async def get_page(page: str) -> str:
+async def get_silverbullet_page(page: str) -> str:
     """Get the content of a Silverbullet page.
 
     Args:
-        page: The name of the page to retrieve.
+        page: The name of the page to retrieve. Include the `.md` of the page name.
     """
     sb_url = f"{SB_API_BASE}/{page}"
     page_data = await make_sb_request(sb_url, response_format='text')
