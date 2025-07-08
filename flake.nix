@@ -43,12 +43,31 @@
               overlay
             ]
           );
+      mcp-probe = pkgs.rustPlatform.buildRustPackage rec {
+        pname = "mcp-probe";
+        version = "v0.3.0";
+
+        src = pkgs.fetchFromGitHub {
+          owner = "conikeec";
+          repo = "mcp-probe";
+          tag = version;
+          hash = "sha256-rwIUxZlz2ZlZPFtideRrd9puMwZqEmu+pbgfQeWcSac=";
+        };
+
+        cargoPatches = [
+            ./nix/mcp-probe-cargo-lock.patch
+        ];
+        cargoHash = "sha256-3+50fgSJCQyXol9y4dfEd4OhZwNn8TxPN/QVj7B2Yf8=";
+
+        doCheck = false;
+      };
     in
     {
       devShells."x86_64-linux".default = pkgs.mkShell {
         buildInputs = with pkgs; [
           python3
           uv
+          mcp-probe
         ];
       };
 
