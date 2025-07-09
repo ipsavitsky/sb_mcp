@@ -39,7 +39,7 @@ async def make_sb_put_request(url: str, body: str) -> bool | None:
             return None
 
 @mcp.tool()
-async def get_silverbullet_index() -> str:
+async def get_index() -> str:
     """Get the index of all pages"""
     sb_url = f"{SB_API_BASE}/index.json"
     page_data = await make_sb_get_request(sb_url, response_format='json')
@@ -52,7 +52,7 @@ async def get_silverbullet_index() -> str:
     return "\n".join(valid_pages)
 
 @mcp.resource("silverbullet://{page}")
-async def get_silverbullet_page(page: str) -> str:
+async def get_page(page: str) -> str:
     """Get the content of a Silverbullet page.
 
     Args:
@@ -63,7 +63,7 @@ async def get_silverbullet_page(page: str) -> str:
     return "Unable to fetch page data" if not page_data else page_data
 
 @mcp.tool()
-async def write_silverbullet_page(page: str, content: str, ctx: Context) -> str:
+async def write_page(page: str, content: str, ctx: Context) -> str:
     """Update the content of a silverbullet page.
 
     Args:
@@ -80,7 +80,6 @@ async def write_silverbullet_page(page: str, content: str, ctx: Context) -> str:
     )
     match result:
         case AcceptedElicitation():
-            # Proceed with the write operation
             sb_url = f"{SB_API_BASE}/{page}"
             page_data = await make_sb_put_request(sb_url, content)
             return "Unable to update page data" if not page_data else "Page data updated successfully"
