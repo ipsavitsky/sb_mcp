@@ -51,7 +51,7 @@ async def get_silverbullet_index() -> str:
             valid_pages.append(item["name"])
     return "\n".join(valid_pages)
 
-@mcp.tool()
+@mcp.resource("silverbullet://{page}")
 async def get_silverbullet_page(page: str) -> str:
     """Get the content of a Silverbullet page.
 
