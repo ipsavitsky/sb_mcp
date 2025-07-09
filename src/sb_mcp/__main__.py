@@ -80,18 +80,17 @@ async def write_silverbullet_page(page: str, content: str, ctx: Context) -> str:
     )
     match result:
         case AcceptedElicitation():
-            return "Write accepted"
+            # Proceed with the write operation
+            sb_url = f"{SB_API_BASE}/{page}"
+            page_data = await make_sb_put_request(sb_url, content)
+            return "Unable to update page data" if not page_data else "Page data updated successfully"
         case DeclinedElicitation():
             return "Write declined"
         case CancelledElicitation():
             return "Write cancelled"
 
-    sb_url = f"{SB_API_BASE}/{page}"
-    page_data = await make_sb_put_request(sb_url, content)
-    return "Unable to update page data" if not page_data else "Page data updated successfully"
-
 def main():
-    mcp.run(transport='stdio')
+    mcp.run()
 
 if __name__ == "__main__":
     main()
