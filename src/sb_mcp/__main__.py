@@ -20,7 +20,7 @@ class AppContext:
 @asynccontextmanager
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     parser = ArgumentParser(prog="sb_mcp")
-    parser.add_argument("--url")
+    parser.add_argument("--url", default="https://silverbullet.md")
     parser.add_argument("--token")
     args = parser.parse_args()
     yield AppContext(base_url=args.url, api_token=args.token)
