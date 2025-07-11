@@ -1,59 +1,82 @@
-import os
 from typing import Any, Literal
 import httpx
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from mcp.server.elicitation import AcceptedElicitation, CancelledElicitation, DeclinedElicitation
+from mcp.server.elicitation import (
+    AcceptedElicitation,
+    CancelledElicitation,
+    DeclinedElicitation,
+)
 from mcp.server.fastmcp import FastMCP, Context
 from pydantic import BaseModel, Field
 from argparse import ArgumentParser
 
+
 @dataclass
 class AppContext:
     base_url: str
-    api_token: str
+    api_token: str | None
 
-# SB_API_BASE = os.getenv("SB_API_BASE_URL", "https://silverbullet.md")
-# SB_API_TOKEN = os.getenv("SB_API_TOKEN")
 
 @asynccontextmanager
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     parser = ArgumentParser(prog="sb_mcp")
     parser.add_argument("--url", default="https://silverbullet.md")
     parser.add_argument("--token")
+    parser.add_argument("--token-file")
     args = parser.parse_args()
-    yield AppContext(base_url=args.url, api_token=args.token)
+    token: str | None = None
+    match (args.token, args.token_file):
+        case (t, None):
+            token = t
+        case (None, tf):
+            with open(tf, "r") as f:
+                token = f.read().strip()
+        case (t, tf):
+            raise RuntimeError("Specified bot token and token file")
+        case (_, _):
+            token = None
+
+    yield AppContext(base_url=args.url, api_token=token)
+
 
 mcp = FastMCP("silverbullet", lifespan=app_lifespan)
 
-async def make_sb_get_request(url: str, token: str | None, response_format: Literal['json', 'text'] = 'json') -> Any | None:
+
+async def make_sb_get_request(
+    url: str, token: str | None, response_format: Literal["json", "text"] = "json"
+) -> Any | None:
     """Make a request to the Silverbullet API with proper error handling."""
     async with httpx.AsyncClient() as client:
         try:
             headers = {"X-Sync-Mode": "true"}
             if token:
-                headers["Authorization"] = f"Token {token}"
+                headers["Authorization"] = f"Bearer {token}"
             response = await client.get(url, headers=headers, timeout=30.0)
             response.raise_for_status()
-            if response_format == 'json':
+            if response_format == "json":
                 return response.json()
             else:
                 return response.text
         except Exception:
             return None
 
+
 async def make_sb_put_request(url: str, token: str | None, body: str) -> bool | None:
     async with httpx.AsyncClient() as client:
         try:
             headers = {"X-Sync-Mode": "true"}
             if token:
-                headers["Authorization"] = f"Token {token}"
-            response = await client.put(url, content=body, headers=headers, timeout=30.0)
+                headers["Authorization"] = f"Bearer {token}"
+            response = await client.put(
+                url, content=body, headers=headers, timeout=30.0
+            )
             response.raise_for_status()
             return True
         except Exception:
             return None
+
 
 @mcp.tool()
 async def get_index() -> str:
@@ -62,7 +85,7 @@ async def get_index() -> str:
     base_url = ctx.request_context.lifespan_context.base_url
     token = ctx.request_context.lifespan_context.api_token
     sb_url = f"{base_url}/index.json"
-    page_data = await make_sb_get_request(sb_url, token, response_format='json')
+    page_data = await make_sb_get_request(sb_url, token, response_format="json")
     if not isinstance(page_data, list):
         return "Unable to fetch page index"
     valid_pages = []
@@ -70,6 +93,7 @@ async def get_index() -> str:
         if isinstance(item, dict) and "name" in item and isinstance(item["name"], str):
             valid_pages.append(item["name"])
     return "\n".join(valid_pages)
+
 
 @mcp.tool()
 async def get_page(page: str) -> str:
@@ -82,8 +106,9 @@ async def get_page(page: str) -> str:
     base_url = ctx.request_context.lifespan_context.base_url
     token = ctx.request_context.lifespan_context.api_token
     sb_url = f"{base_url}/{page}"
-    page_data = await make_sb_get_request(sb_url, token, response_format='text')
+    page_data = await make_sb_get_request(sb_url, token, response_format="text")
     return "Unable to fetch page data" if not page_data else page_data
+
 
 @mcp.tool()
 async def write_page(page: str, content: str, ctx: Context) -> str:
@@ -102,20 +127,26 @@ async def write_page(page: str, content: str, ctx: Context) -> str:
 
     result = await ctx.elicit(
         message=f"Write the following text to {page}? (WARNING! THIS WILL OVERRIDE THE CURRENT PAGE)\n{content}",
-        schema=ConfirmWrite
+        schema=ConfirmWrite,
     )
     match result:
         case AcceptedElicitation():
             sb_url = f"{base_url}/{page}"
             page_data = await make_sb_put_request(sb_url, token, content)
-            return "Unable to update page data" if not page_data else "Page data updated successfully"
+            return (
+                "Unable to update page data"
+                if not page_data
+                else "Page data updated successfully"
+            )
         case DeclinedElicitation():
             return "Write declined"
         case CancelledElicitation():
             return "Write cancelled"
 
+
 def main():
     mcp.run()
+
 
 if __name__ == "__main__":
     main()
