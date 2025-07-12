@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from mcp.server.fastmcp import FastMCP
 from argparse import ArgumentParser
 
+
 @dataclass
 class AppContext:
     base_url: str
     api_token: str | None
-    elicit: bool
 
 
 @asynccontextmanager
@@ -19,7 +19,6 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     parser.add_argument("--url", default="https://silverbullet.md")
     parser.add_argument("--token")
     parser.add_argument("--token-file")
-    parser.add_argument("--no-elicitation", action="store_false")
     args = parser.parse_args()
     token: str | None = None
     match (args.token, args.token_file):
@@ -33,7 +32,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         case (_, _):
             token = None
 
-    yield AppContext(base_url=args.url, api_token=token, elicit=not args.no_elicitation)
+    yield AppContext(base_url=args.url, api_token=token)
 
 
 mcp = FastMCP("silverbullet", lifespan=app_lifespan)
