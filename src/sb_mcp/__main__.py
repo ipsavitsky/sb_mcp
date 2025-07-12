@@ -17,6 +17,7 @@ from argparse import ArgumentParser
 class AppContext:
     base_url: str
     api_token: str | None
+    elicit: bool
 
 
 @asynccontextmanager
@@ -25,6 +26,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     parser.add_argument("--url", default="https://silverbullet.md")
     parser.add_argument("--token")
     parser.add_argument("--token-file")
+    parser.add_argument("--no-elicitation", action="store_false")
     args = parser.parse_args()
     token: str | None = None
     match (args.token, args.token_file):
@@ -38,7 +40,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         case (_, _):
             token = None
 
-    yield AppContext(base_url=args.url, api_token=token)
+    yield AppContext(base_url=args.url, api_token=token, elicit=args.elicit)
 
 
 mcp = FastMCP("silverbullet", lifespan=app_lifespan)
@@ -111,37 +113,46 @@ async def get_page(page: str) -> str:
 
 
 @mcp.tool()
-async def write_page(page: str, content: str, ctx: Context) -> str:
+async def write_page(page: str, content: str, ctx: Context) -> str | None:
     """Update the content of a silverbullet page.
 
     Args:
         page: The name of the page to retrieve. Include the `.md` of the page name.
         content: New content of the page.
     """
+
+    async def make_request(base_url: str, token: str, page: str, content: str):
+        sb_url = f"{base_url}/{page}"
+        page_data = await make_sb_put_request(sb_url, token, content)
+        return (
+            "Unable to update page data"
+            if not page_data
+            else "Page data updated successfully"
+        )
+
     ctx = mcp.get_context()
     base_url = ctx.request_context.lifespan_context.base_url
     token = ctx.request_context.lifespan_context.api_token
+    elicit = ctx.request_context.lifespan_context.elicit
 
-    class ConfirmWrite(BaseModel):
-        confirm: bool = Field(description="Confirm write?")
+    if elicit:
 
-    result = await ctx.elicit(
-        message=f"Write the following text to {page}? (WARNING! THIS WILL OVERRIDE THE CURRENT PAGE)\n{content}",
-        schema=ConfirmWrite,
-    )
-    match result:
-        case AcceptedElicitation():
-            sb_url = f"{base_url}/{page}"
-            page_data = await make_sb_put_request(sb_url, token, content)
-            return (
-                "Unable to update page data"
-                if not page_data
-                else "Page data updated successfully"
-            )
-        case DeclinedElicitation():
-            return "Write declined"
-        case CancelledElicitation():
-            return "Write cancelled"
+        class ConfirmWrite(BaseModel):
+            confirm: bool = Field(description="Confirm write?")
+
+        result = await ctx.elicit(
+            message=f"Write the following text to {page}? (WARNING! THIS WILL OVERRIDE THE CURRENT PAGE)\n{content}",
+            schema=ConfirmWrite,
+        )
+        match result:
+            case AcceptedElicitation():
+                return await make_request(base_url, token, page, content)
+            case DeclinedElicitation():
+                return "Write declined"
+            case CancelledElicitation():
+                return "Write cancelled"
+    else:
+        return await make_request(base_url, token, page, content)
 
 
 def main():
