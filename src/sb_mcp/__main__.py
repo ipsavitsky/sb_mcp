@@ -40,7 +40,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         case (_, _):
             token = None
 
-    yield AppContext(base_url=args.url, api_token=token, elicit=args.elicit)
+    yield AppContext(base_url=args.url, api_token=token, elicit=not args.no_elicitation)
 
 
 mcp = FastMCP("silverbullet", lifespan=app_lifespan)
