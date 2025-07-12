@@ -3,15 +3,8 @@ import httpx
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from mcp.server.elicitation import (
-    AcceptedElicitation,
-    CancelledElicitation,
-    DeclinedElicitation,
-)
-from mcp.server.fastmcp import FastMCP, Context
-from pydantic import BaseModel, Field
+from mcp.server.fastmcp import FastMCP
 from argparse import ArgumentParser
-
 
 @dataclass
 class AppContext:
@@ -113,7 +106,7 @@ async def get_page(page: str) -> str:
 
 
 @mcp.tool()
-async def write_page(page: str, content: str, ctx: Context) -> str | None:
+async def write_page(page: str, content: str) -> str:
     """Update the content of a silverbullet page.
 
     Args:
@@ -121,38 +114,17 @@ async def write_page(page: str, content: str, ctx: Context) -> str | None:
         content: New content of the page.
     """
 
-    async def make_request(base_url: str, token: str, page: str, content: str):
-        sb_url = f"{base_url}/{page}"
-        page_data = await make_sb_put_request(sb_url, token, content)
-        return (
-            "Unable to update page data"
-            if not page_data
-            else "Page data updated successfully"
-        )
-
     ctx = mcp.get_context()
     base_url = ctx.request_context.lifespan_context.base_url
     token = ctx.request_context.lifespan_context.api_token
-    elicit = ctx.request_context.lifespan_context.elicit
 
-    if elicit:
-
-        class ConfirmWrite(BaseModel):
-            confirm: bool = Field(description="Confirm write?")
-
-        result = await ctx.elicit(
-            message=f"Write the following text to {page}? (WARNING! THIS WILL OVERRIDE THE CURRENT PAGE)\n{content}",
-            schema=ConfirmWrite,
-        )
-        match result:
-            case AcceptedElicitation():
-                return await make_request(base_url, token, page, content)
-            case DeclinedElicitation():
-                return "Write declined"
-            case CancelledElicitation():
-                return "Write cancelled"
-    else:
-        return await make_request(base_url, token, page, content)
+    sb_url = f"{base_url}/{page}"
+    page_data = await make_sb_put_request(sb_url, token, content)
+    return (
+        "Unable to update page data"
+        if not page_data
+        else "Page data updated successfully"
+    )
 
 
 def main():
