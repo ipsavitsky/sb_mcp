@@ -43,14 +43,28 @@
               overlay
             ]
           );
+      editableOverlay = workspace.mkEditablePyprojectOverlay { root = "$REPO_ROOT"; };
+      editablePythonSet = pythonSet.overrideScope editableOverlay;
+      virtualenv = editablePythonSet.mkVirtualEnv "sb_mcp-dev-env" workspace.deps.all;
     in
     {
       devShells."x86_64-linux".default = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          python3
-          uv
-          bun
+        packages = [
+          virtualenv
+          pkgs.uv
+          pkgs.bun
         ];
+
+        env = {
+          UV_NO_SYNC = "1";
+          UV_PYTHON = editablePythonSet.python.interpreter;
+          UV_PYTHON_DOWNLOADS = "never";
+        };
+
+        shellHook = ''
+          unset PYTHONPATH
+          export REPO_ROOT=$(git rev-parse --show-toplevel)
+        '';
       };
 
       packages."x86_64-linux" = rec {
